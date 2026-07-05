@@ -1,6 +1,7 @@
 # 🏔️ Image → Height Map → Normal Map → 3D Terrain Mesh
 
 > Transform any flat 2D image into a fully exportable 3D terrain mesh and tangent-space normal map — using pure Python and open-source libraries.
+> check pdf: ''terrain generator.pdf'' for understanding the project in detail.
 
 ---
 
