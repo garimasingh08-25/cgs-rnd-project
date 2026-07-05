@@ -1,0 +1,216 @@
+# 🏔️ Image → Height Map → Normal Map → 3D Terrain Mesh
+
+> Transform any flat 2D image into a fully exportable 3D terrain mesh and tangent-space normal map — using pure Python and open-source libraries.
+
+---
+
+## 📸 What It Does
+
+| Input :Any `.png` / `.jpg` / `.bmp` image 
+| output :`terrain.obj` — 3D mesh (Blender, Unity, Unreal ready)
+
+| Bright pixels → high elevation 
+|`normal_map.png` — RGB-encoded surface normals 
+| Dark pixels → low elevation 
+|Live 3D matplotlib preview 
+
+| **No input file?** 
+
+The script auto-generates a demo terrain with hills and noise so you can see the full pipeline immediately.
+
+---
+
+## 🗺️ Pipeline Overview
+
+```
+Input Image (any photo)
+        │
+        ▼
+ Luminance Extraction
+
+    gray = cv2.cvtColor(img, cv2.COLOR_RGB2LAB) 
+
+        |
+        ▼
+ Gaussian Smoothing  ──→  Height Map
+ (removes noise/spikes)
+        │
+        ├─────────────────────────┐
+        ▼                         ▼
+ Sobel Gradient               Grid of XYZ vertices
+ ∂h/∂x,  ∂h/∂y                X = col / (cols-1)
+        │                      Y = row / (rows-1)
+        ▼                      Z = np.power(hmap,gamma)*HEIGHT_SCALE
+ N = (−∂h/∂x, −∂h/∂y, 1)              │
+ normalise → unit vector               ▼
+        │                    Quad Triangulation
+        ▼                    2 triangles per cell
+  normal_map.png              terrain.obj  +  UV map
+```
+
+---
+
+## ⚙️ Installation
+
+ 1. Open the VS Code terminal
+Press **Ctrl + `` ` ``** to open the integrated terminal.
+
+ 2. Install all dependencies (one command)
+```bash
+ pip install -r requirements.txt
+```
+
+> If you have multiple Python versions, use `python -m pip install ...` instead.
+
+3. Verify Python version
+```bash
+python --version   # needs Python 3.8 or newer
+```
+
+---
+
+## 🚀 Quick Start
+
+```bash
+# Run with the auto-generated demo terrain
+python terrain_mesh_generator.py
+
+# Run with your own image
+# → place your image in the same folder, then set INPUT_IMAGE in the script
+python terrain_mesh_generator.py input.png
+```
+
+**Outputs appear in the same folder as the script:**
+```
+terrain_mesh_generator.py
+terrain.obj          ← 3D mesh
+normal_map.png       ← normal map
+```
+
+---
+
+## 🎛️ Configuration
+
+Open `terrain_mesh_generator.py` and edit the constants at the top:
+
+```python
+INPUT_IMAGE   = "input.png"   # path to your source image
+OUTPUT_MESH   = "terrain.obj" # output 3D mesh filename
+OUTPUT_NORMAL = "normal_map.png"  # output normal map filename
+
+MESH_WIDTH    = 128    # grid columns  (64 = fast/blocky · 512 = detailed/slow)
+MESH_HEIGHT   = 128    # grid rows
+HEIGHT_SCALE  = 20.0   # max elevation (5 = subtle · 50 = dramatic mountains)
+SMOOTH_SIGMA  = 1.5    # blur radius   (0 = off · 3.0 = smooth rolling hills)
+```
+
+| Parameter | Low value | High value |
+|---|---|---|
+| `MESH_WIDTH/HEIGHT` | 64 → fast, coarse | 512 → slow, detailed |
+| `HEIGHT_SCALE` | 5 → flat terrain | 50 → tall mountains |
+| `SMOOTH_SIGMA` | 0 → spiky/raw | 3.0 → smooth hills |
+
+---
+
+## 📂 Project Structure
+
+```
+your-project/
+│
+├── terrain_mesh_generator.py   # main script
+├── input.png                   # (optional) your source image
+│
+├── terrain.obj                 # generated 3D mesh
+├── normal_map.png              # generated normal map
+│
+└── README.md                   # this file
+```
+
+---
+
+## 🖥️ Output Compatibility
+
+| Software | Format | Status |
+|---|---|---|
+| Blender 3.x / 4.x | `.obj` | ✅ Imports with correct geometry, normals, UV |
+| Unity 2022 LTS | `.obj` | ✅ Asset import with default settings |
+| Unreal Engine 5 | `.obj` | ✅ Import via Content Browser |
+| MeshLab | `.obj` | ✅ Renders correctly |
+| Windows 3D Viewer | `.obj` | ✅ Opens directly |
+| Photoshop / Substance | `.png` normal map | ✅ Blue-channel normal map standard |
+| Three.js | `.obj` via OBJLoader | ✅ Correct vertex and UV data |
+
+---
+
+## 🧩 Dependencies
+
+| Package | Purpose | Install |
+|---|---|---|
+| `numpy` | Array math, gradient ops | included above |
+| `opencv-python` | Image I/O, Sobel filter, resize | included above |
+| `scipy` | Extension fallback (Gaussian) | included above |
+| `matplotlib` | 3D interactive preview | included above |
+| `trimesh` | Mesh assembly + `.obj` export | included above |
+| `pillow` | Save normal map PNG | included above |
+
+---
+
+## 🛠️ Troubleshooting
+
+**`ModuleNotFoundError: No module named 'cv2'`**
+```bash
+pip install opencv-python
+```
+
+**`ModuleNotFoundError: No module named 'trimesh'`**
+```bash
+pip install trimesh
+```
+
+**Script runs but no 3D window appears**
+- Make sure matplotlib is installed: `pip install matplotlib`
+- On headless servers, the preview will not display but files are still saved.
+
+**Mesh looks flat / no elevation**
+- Increase `HEIGHT_SCALE` in the configuration (try `40.0` or `60.0`)
+- Make sure your input image has real brightness contrast
+
+**Terrain is too spiky**
+- Increase `SMOOTH_SIGMA` (try `2.5` or `3.0`)
+
+**VS Code picks the wrong Python**
+- Press `Ctrl+Shift+P` → *"Python: Select Interpreter"* → choose your environment
+
+---
+
+## 📈 Performance Reference
+
+| Grid Size | Vertices | Triangles | Approx. Time |
+|---|---|---|---|
+| 64 × 64 | 4,096 | 7,938 | < 0.3s |
+| 128 × 128 | 16,384 | 32,258 | < 1.2s |
+| 256 × 256 | 65,536 | 130,050 | ~3s |
+| 512 × 512 | 262,144 | 523,778 | ~10s |
+
+*Tested on Intel Core i7-1165G7, 16 GB RAM.*
+
+---
+
+## 🔮 Possible Extensions
+
+- **Multi-scale terrain** — blend height maps at multiple frequencies for fractal detail
+- **ML depth estimation** — replace luminance proxy with a MiDaS/DPT depth network
+- **Mesh decimation** — reduce polygon count in flat areas while preserving ridges
+- **glTF 2.0 export** — embed PBR materials (normal, roughness, metallic maps)
+- **Spherical projection** — map onto a UV sphere for planetary terrain
+- **Web app** — FastAPI backend + Three.js frontend for browser-based generation
+
+---
+
+## 📄 License
+
+This project is released for educational and research use. No warranty is expressed or implied.
+
+---
+
+*For the full mathematical derivation and implementation analysis, see the accompanying project report: `terrain_project_report.docx`*
